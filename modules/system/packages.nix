@@ -205,6 +205,12 @@ in
     # AppImage vive en ~/.local/share/filmcraft-appimage y NUNCA se actualiza
     # en un rebuild; refrescarlo es `filmcraft --update`. Ver pkgs/filmcraft.
     (pkgs.callPackage ../../pkgs/filmcraft { })
+    # Open Video Downloader (antes youtube-dl-gui): GUI para descargar vídeo,
+    # audio y subtítulos con yt-dlp. Mismo esquema de launcher mutable: el
+    # AppImage vive en ~/.local/share/open-video-downloader-appimage y no se
+    # actualiza en un rebuild; refrescarlo es `open-video-downloader --update`.
+    # Incluye .desktop e iconos para que aparezca en loon-launch (Super+Space).
+    (pkgs.callPackage ../../pkgs/open-video-downloader { })
     # Separación local de voces con RoFormer/CUDA. Los pesos quedan fuera del
     # store, en ~/Proyectos/separador-vocal/modelos, y se cargan sólo al usarlo.
     (pkgs.callPackage ../../pkgs/karaoke-separator { })
