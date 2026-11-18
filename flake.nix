@@ -275,6 +275,10 @@
         omafiles = pkgs.callPackage ./pkgs/omafiles { };
         # Launcher de juegos anime (Tauri/WebKitGTK) empaquetado desde su .deb oficial.
         twintaillauncher = pkgs.callPackage ./pkgs/twintaillauncher { };
+        # Open Video Downloader (youtube-dl-gui): GUI de yt-dlp como launcher
+        # mutable. Nix instala comando, .desktop e iconos; el AppImage se
+        # descarga al home solo si falta y no se toca en un rebuild.
+        open-video-downloader = pkgs.callPackage ./pkgs/open-video-downloader { };
       };
 
       overlays = {
