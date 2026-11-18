@@ -18,13 +18,18 @@
 # última release con la API pública de GitHub (jq), con respaldo al redirect
 # de /releases/latest. En ningún caso el número de versión viaja en este archivo.
 #
-# El AppImage no corre tal cual en NixOS (runtime FHS ausente → stub-ld), por
-# eso se lanza con `appimage-run`. yt-dlp y ffmpeg entran en el PATH del launcher:
-# son las herramientas con las que la app descarga y post-procesa; la app las
-# gestiona por sí misma, pero así el entorno siempre las provee (.control del
-# .deb oficial: libwebkit2gtk-4.1, gtk3 y libayatana-appindicator, ya dentro
-# del AppImage).
-{ lib, writeShellApplication, appimage-run, curl, jq, yt-dlp, ffmpeg, symlinkJoin }:
+# El AppImage se lanza con SU PROPIO runtime y `APPIMAGE_EXTRACT_AND_RUN=1`:
+# no se usa `appimage-run` de nixpkgs porque su script calcula mal el offset
+# del squashfs de este AppImage (busca el superblock en 1483248, pero el magic
+# `hsqs` está en 355224) y aborta con "Can't find a valid SQUASHFS superblock".
+# Con la variable, el runtime embebido extrae y arranca sin FUSE (verificado:
+# la ventana aparece). El arranque tarda ~20 s por la extracción; es una vez
+# por lanzamiento, no afecta al rebuild. yt-dlp y ffmpeg entran en el PATH del
+# launcher: son las herramientas con las que la app descarga y post-procesa; la
+# app las gestiona por sí misma, pero así el entorno siempre las provee (.control
+# del .deb oficial: libwebkit2gtk-4.1, gtk3 y libayatana-appindicator, ya
+# dentro del AppImage).
+{ lib, writeShellApplication, curl, jq, yt-dlp, ffmpeg, symlinkJoin }:
 
 let
   latestApi = "https://api.github.com/repos/jely2002/youtube-dl-gui/releases/latest";
@@ -32,7 +37,7 @@ let
 
   launcher = writeShellApplication {
     name = "open-video-downloader";
-    runtimeInputs = [ appimage-run curl jq yt-dlp ffmpeg ];
+    runtimeInputs = [ curl jq yt-dlp ffmpeg ];
     text = ''
       # Directorio propio del launcher, separado de los datos de la app para que
       # un "borrar datos" no se lleve el binario por delante (mismo motivo que
@@ -99,7 +104,10 @@ let
         echo "open-video-downloader: instalado ($tag)" >&2
       fi
 
-      exec appimage-run "$app" "$@"
+      # Runtime propio del AppImage: extrae y ejecuta sin FUSE. `appimage-run`
+      # no sirve aquí (offset del squashfs mal calculado, ver cabecera).
+      export APPIMAGE_EXTRACT_AND_RUN=1
+      exec "$app" "$@"
     '';
   };
 in
