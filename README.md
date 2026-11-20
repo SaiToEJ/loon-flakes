@@ -42,7 +42,7 @@ responsabilidad única, componibles y declarativos**. Nada de monolitos.
     ├── programs/                      # shells y programas de usuario
     │   ├── fish/                      # shell + prompt oh-my-posh
     │   ├── ghostty/                   # terminal (config gestionada)
-    │   ├── waybar/                    # barra de estado (config + estilo)
+    │   ├── quickshell/                # barra Quickshell (loonbar en QML)
     │   ├── equibop/                   # Discord con fix de WebRTC (Tailscale)
     │   └── gentle-ai/                 # stack Gentle-AI/Pi/Engram + bootstrap
     ├── wayland/                       # compositores Wayland y greeter
@@ -91,8 +91,9 @@ Los directorios y archivos incluidos por Niri se crean declarativamente con
 tmpfiles, de modo que una instalación nueva no depende de estado previo del usuario.
 El launcher tampoco requiere archivos privados del home: si la imagen opcional
 del banner no está disponible, utiliza un degradado integrado.
-Waybar, loon-launch y los daemons persistentes de Niri son servicios de usuario
-supervisados: se inician y detienen con la sesión y se recuperan de un fallo.
+Quickshell (loonbar), loon-launch y los daemons persistentes de Niri son
+servicios de usuario supervisados: se inician y detienen con la sesión y se
+recuperan de un fallo.
 
 > **Nota**: `rebuild update` también actualiza el `flake.lock`, lo que trae
 > las últimas versiones de Zen Browser y VS Code Insiders (ver abajo).
@@ -239,8 +240,10 @@ Escribe `~/.config/mpvpaper/accent.txt` (hex) y `~/.config/niri/accent.kdl`
 (override del border de niri, que recarga en vivo al cambiar). Tanto
 `mpvpaper-wallpaper` como `niri-backdrop` lo disparan automáticamente al
 cambiar de fondo; loon-bar y Pi vigilan `accent.txt` y actualizan sus colores
-sin reiniciar. Waybar observa su `colors.css` importado y actualiza la paleta
-dentro del mismo proceso, sin desaparecer durante la transición.
+sin reiniciar. También renueva el acento GTK3, el modo claro/oscuro derivado
+del luma y la paleta compartida en `~/.config/loon-shell/colors.css` y
+`~/.config/loon-shell/accent.css`: la barra Quickshell (loonbar) la relee por
+IPC (`paleta recargar`) sin desaparecer durante la transición.
 
 ### `niri-backdrop` — fondo estático del backdrop
 
@@ -792,18 +795,17 @@ ejecución puede lanzarse como `./programa.exe`. No todos los programas Windows
 son compatibles con Wine; los que necesiten DLL o runtimes adicionales pueden
 prepararse con `winetricks`.
 
-### waybar (`waybar/`)
+### quickshell (`quickshell/`)
 
-Barra de estado inferior (Waybar v0.15), config gestionada por NixOS
-(mismo patrón: `/etc/waybar/` + symlinks en `~/.config/waybar/`). Se lanza
-automáticamente al iniciar la sesión (`spawn-at-startup "waybar"` en niri).
+La barra superior (reloj, volumen, red, brillo, batería, workspaces…), escrita
+en QML y gestionada por NixOS: los archivos viven en `/etc/quickshell/loonbar/`
+y los arranca `quickshell.service` con la sesión. Sustituye a la antigua Waybar.
 
-- **Módulos**: workspaces y ventana de niri, reloj, volumen (pulseaudio),
-  red, brillo, batería y bandeja del sistema.
-- **Estilo**: tema Nord consistente con niri (colores `#3b4252`, `#5e81ac`, ...).
-- **Editar**: `modules/programs/waybar/config.jsonc` (módulos) y
-  `modules/programs/waybar/style.css` (estilos) → `rebuild`.
-- **Recargar la barra** sin reiniciar sesión: `killall waybar && waybar &`.
+- **Editar**: `modules/programs/quickshell/loonbar/*.qml` → `rebuild`.
+- **Recargarla** sin cerrar sesión: `systemctl --user restart quickshell.service`.
+- **Paleta**: comparte `~/.config/loon-shell/colors.css` y `accent.css` con el
+  resto del escritorio; `accent-wallpaper` publica ahí los colores y avisa a la
+  barra por IPC (`paleta recargar`).
 
 ### equibop (`equibop/`)
 
@@ -878,9 +880,10 @@ transparente.
 - **Paquetes no libres**: `allowUnfree = true` (microcode Intel, etc.).
 - **Brillo**: `loon-laptop` usa un wrapper setuid de `brightnessctl` sobre el
   panel interno Intel; `nixos-pc` usa DDC/CI sobre los buses I2C de la NVIDIA
-  para el monitor principal GM3CC236. Waybar muestra el icono y porcentaje y
-  permite regularlo con la rueda del mouse. En el PC un daemon de sesión
-  agrupa las ráfagas de input y sincroniza el valor real cada 30 segundos.
+  para el monitor principal GM3CC236. La barra (Quickshell/loonbar) muestra el
+  icono y porcentaje y permite regularlo con la rueda del mouse. En el PC un
+  daemon de sesión agrupa las ráfagas de input y sincroniza el valor real cada
+  30 segundos.
 - **Paquetes globales** (`environment.systemPackages`): git, gh, btop,
   fastfetch, ghostty, nodejs, zen-browser, helium-browser, vscode-insiders,
   equibop, fish, yazi, mpvpaper/mpv, oh-my-posh, los scripts propios
