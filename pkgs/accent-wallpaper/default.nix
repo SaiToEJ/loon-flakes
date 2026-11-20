@@ -5,16 +5,11 @@
 #   ~/.config/mpvpaper/accent.txt    -> hex del color de acento principal
 #   ~/.config/niri/accent.kdl        -> override de niri (border active-color)
 #   ~/.config/gtk-4.0/gtk.css        -> override de apps GTK (selección)
-#   ~/.config/waybar/colors.css      -> paleta completa para Waybar (background, surface, foreground, accent, highlight, warning, critical, color0-15)
-#   ~/.config/waybar/accent.css      -> compatibilidad de acento Waybar
+#   ~/.config/loon-shell/colors.css  -> paleta compartida de la barra Quickshell (background, surface, foreground, accent, highlight, warning, critical, color0-15)
+#   ~/.config/loon-shell/accent.css  -> acento compartido (accent y on_accent)
 #   ~/.config/swaync/accent.css      -> acento de notificaciones (SwayNC)
 #   ~/.config/gtk-3.0/gtk.css        -> acento GTK3 (blueman y el resto de apps GTK3)
 #   ~/.config/mpvpaper/theme-mode.txt -> modo claro/oscuro derivado del luma
-#
-# Regla de accent (decisión del dueño): SOLO los fondos animados (video)
-# actualizan el accent del sistema. Los backdrops estáticos (niri-backdrop)
-# se ignoran: la paleta anterior se conserva. El header del launcher lee el
-# accent de los animados desde ~/.config/mpvpaper/accent.txt (sin cambios).
 #
 # Regla de accent (decisión del dueño): SOLO los fondos animados (video)
 # actualizan el accent del sistema. Los backdrops estáticos (niri-backdrop)
@@ -193,13 +188,13 @@ def main():
     # GTK3: blueman y el resto de apps GTK3 leen ESTE archivo, no el de gtk-4.0.
     # Sin él, blueman es la única ventana que no adopta el color del wallpaper.
     gtk3_css_path = os.path.join(home, '.config/gtk-3.0/gtk.css')
-    waybar_colors_path = os.path.join(home, '.config/waybar/colors.css')
-    waybar_accent_path = os.path.join(home, '.config/waybar/accent.css')
+    shell_colors_path = os.path.join(home, '.config/loon-shell/colors.css')
+    shell_accent_path = os.path.join(home, '.config/loon-shell/accent.css')
     swaync_accent_path = os.path.join(home, '.config/swaync/accent.css')
     hypr_colors_path = os.path.join(home, '.config/hypr/colors.conf')
     theme_mode_path = os.path.join(home, '.config/mpvpaper/theme-mode.txt')
     
-    for p in [accent_txt_path, niri_kdl_path, gtk_css_path, gtk3_css_path, waybar_colors_path, waybar_accent_path, swaync_accent_path, hypr_colors_path, theme_mode_path]:
+    for p in [accent_txt_path, niri_kdl_path, gtk_css_path, gtk3_css_path, shell_colors_path, shell_accent_path, swaync_accent_path, hypr_colors_path, theme_mode_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
         
     atomic_write(accent_txt_path, accent_hex + '\n')
@@ -235,7 +230,7 @@ def main():
         f'}}\n'
     ))
         
-    waybar_colors_content = f"""/* Paleta dinámica generada desde el wallpaper */
+    shell_colors_content = f"""/* Paleta dinámica generada desde el wallpaper */
 @define-color background {bg_hex};
 @define-color background_alt {surface_hex};
 @define-color surface {surface_hex};
@@ -265,7 +260,9 @@ def main():
 @define-color color14 {highlight_hex};
 @define-color color15 {fg_hex};
 """
-    atomic_write(waybar_accent_path, f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
+    atomic_write(shell_accent_path, f'@define-color accent {accent_hex};\n@define-color on_accent {on_accent_hex};\n')
+    # SwayNC consume además background/surface/text: su CSS importa este
+    # archivo y no redefine esos colores (ver modules/programs/swaync).
     atomic_write(swaync_accent_path, (
         f'@define-color accent {accent_hex};\n'
         f'@define-color on_accent {on_accent_hex};\n'
@@ -291,9 +288,9 @@ $critical = rgb({crit_hex.lstrip('#')})
 """
     atomic_write(hypr_colors_path, hypr_colors_content)
 
-    # Waybar observa este import. Publicarlo al final hace que la actualización
-    # visual ocurra cuando el resto de consumidores ya tiene la misma paleta.
-    atomic_write(waybar_colors_path, waybar_colors_content)
+    # Publicar al final la paleta hace que la barra encuentre a los demás
+    # consumidores con la misma paleta cuando avisamos por IPC.
+    atomic_write(shell_colors_path, shell_colors_content)
         
     print(f"Paleta de wallpaper aplicada: Modo={theme_mode}, Accent={accent_hex}, BG={bg_hex}, FG={fg_hex}, Highlight={highlight_hex}")
 
@@ -350,18 +347,26 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
     echo "Modo de apariencia: $mode"
   }
 
+  notificar_barra() {
+    # La barra se recarga por IPC porque FileView puede perder el reemplazo
+    # atómico de los archivos. El prefijo '-' la hace opcional: la paleta se
+    # publica igual aunque no haya sesión o la barra esté arrancando.
+    "${pkgs.quickshell}/bin/qs" -p /etc/quickshell/loonbar ipc call paleta recargar >/dev/null 2>&1 || true
+  }
+
   apply_cached_palette() {
     local cache=$1
     atomic_copy "$cache/accent.txt" "$HOME/.config/mpvpaper/accent.txt"
     atomic_copy "$cache/niri-accent.kdl" "$HOME/.config/niri/accent.kdl"
     atomic_copy "$cache/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
     atomic_copy "$cache/gtk3.css" "$HOME/.config/gtk-3.0/gtk.css"
-    atomic_copy "$cache/waybar-accent.css" "$HOME/.config/waybar/accent.css"
+    atomic_copy "$cache/loon-shell-accent.css" "$HOME/.config/loon-shell/accent.css"
     atomic_copy "$cache/swaync-accent.css" "$HOME/.config/swaync/accent.css"
     atomic_copy "$cache/hypr-colors.conf" "$HOME/.config/hypr/colors.conf"
     atomic_copy "$cache/theme-mode.txt" "$HOME/.config/mpvpaper/theme-mode.txt"
-    # Publicar el import observado por Waybar al final.
-    atomic_copy "$cache/waybar-colors.css" "$HOME/.config/waybar/colors.css"
+    # Publicar al final la paleta que relee la barra Quickshell.
+    atomic_copy "$cache/loon-shell-colors.css" "$HOME/.config/loon-shell/colors.css"
+    notificar_barra
   }
 
   cache_current_palette() {
@@ -373,8 +378,8 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
     ${pkgs.coreutils}/bin/cp "$HOME/.config/niri/accent.kdl" "$temporary/niri-accent.kdl"
     ${pkgs.coreutils}/bin/cp "$HOME/.config/gtk-4.0/gtk.css" "$temporary/gtk.css"
     ${pkgs.coreutils}/bin/cp "$HOME/.config/gtk-3.0/gtk.css" "$temporary/gtk3.css"
-    ${pkgs.coreutils}/bin/cp "$HOME/.config/waybar/colors.css" "$temporary/waybar-colors.css"
-    ${pkgs.coreutils}/bin/cp "$HOME/.config/waybar/accent.css" "$temporary/waybar-accent.css"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/loon-shell/colors.css" "$temporary/loon-shell-colors.css"
+    ${pkgs.coreutils}/bin/cp "$HOME/.config/loon-shell/accent.css" "$temporary/loon-shell-accent.css"
     ${pkgs.coreutils}/bin/cp "$HOME/.config/swaync/accent.css" "$temporary/swaync-accent.css"
     ${pkgs.coreutils}/bin/cp "$HOME/.config/hypr/colors.conf" "$temporary/hypr-colors.conf"
     ${pkgs.coreutils}/bin/cp "$HOME/.config/mpvpaper/theme-mode.txt" "$temporary/theme-mode.txt"
@@ -447,6 +452,10 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   ${pkgs.util-linux}/bin/flock 9
   CACHE_KEY="$({
     ${pkgs.coreutils}/bin/printf '%s\n' 'palette-v5'
+    # La caché v5 guardaba waybar-*.css; ahora guarda loon-shell-*.css.
+    # Este token adicional cambia la clave y evita reutilizar entradas v5
+    # antiguas, que no contienen la paleta de la barra Quickshell.
+    ${pkgs.coreutils}/bin/printf '%s\n' 'loonbar'
     # %y incluye nanosegundos, evitando reutilizar una paleta obsoleta si un
     # archivo se reemplaza muy rápido por otro del mismo tamaño.
     ${pkgs.coreutils}/bin/stat --printf='%n\n%s\n%y\n' "$TARGET"
@@ -482,10 +491,9 @@ pkgs.writeShellScriptBin "accent-wallpaper" ''
   apply_theme_mode
 
   # ---- Propagación en vivo ----
-  # Waybar observa style.css y sus imports porque la configuración activa
-  # reload_style_on_change. colors.css se aplica dentro del mismo proceso: no
-  # enviar SIGUSR2 ni reiniciar la unidad, pues eso reconstruye las barras y
-  # produce un parpadeo visible durante el crossfade del wallpaper.
+  # Avisar a la barra para que relea ~/.config/loon-shell/colors.css y
+  # accent.css sin esperar a FileView ni reiniciar su unidad.
+  notificar_barra
 
   # Recargar notificaciones SwayNC
   "$SWAYNC_CLIENT" -R 2>/dev/null || true

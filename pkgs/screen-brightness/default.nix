@@ -19,7 +19,7 @@ pkgs.writeShellScriptBin "screen-brightness" ''
   SYS_DIR="/sys/class/backlight/intel_backlight"
   if [ ! -d "$SYS_DIR" ]; then
     # /sys/class/backlight contiene enlaces simbólicos a los dispositivos.
-    # `find -type d` sin seguir enlaces no los detecta y hacía que Waybar
+    # `find -type d` sin seguir enlaces no los detecta y hacía que la barra
     # ocultara el brillo cuando el driver no se llamaba intel_backlight.
     SYS_DIR=""
     for candidate in /sys/class/backlight/*; do
@@ -31,7 +31,7 @@ pkgs.writeShellScriptBin "screen-brightness" ''
   fi
 
   if [ -z "$SYS_DIR" ] || [ ! -f "$SYS_DIR/max_brightness" ]; then
-    # Un monitor externo de escritorio no expone /sys/class/backlight. Waybar
+    # Un monitor externo de escritorio no expone /sys/class/backlight. La barra
     # necesita una respuesta JSON válida para ocultar el módulo sin registrar
     # un error cada segundo; los comandos de control sí conservan el fallo.
     if [ "$CMD" = json ]; then
@@ -86,10 +86,6 @@ pkgs.writeShellScriptBin "screen-brightness" ''
     echo "$target"
   }
 
-  notify_waybar() {
-    pkill -RTMIN+8 waybar 2>/dev/null || true
-  }
-
   case "$CMD" in
     get)
       CUR="$(get_cur_raw)"
@@ -101,7 +97,6 @@ pkgs.writeShellScriptBin "screen-brightness" ''
       TARGET_UI="''${TARGET_UI%%%}"
       TARGET_RAW="$(ui_to_raw "$TARGET_UI")"
       "$BRIGHTNESSCTL" --device="$DEVICE" --min-value="$MIN_RAW" set "$TARGET_RAW" >/dev/null
-      notify_waybar
       ;;
 
     up|+)
@@ -114,7 +109,6 @@ pkgs.writeShellScriptBin "screen-brightness" ''
       if [ "$NEW_UI" -gt 100 ]; then NEW_UI=100; fi
       TARGET_RAW="$(ui_to_raw "$NEW_UI")"
       "$BRIGHTNESSCTL" --device="$DEVICE" --min-value="$MIN_RAW" set "$TARGET_RAW" >/dev/null
-      notify_waybar
       ;;
 
     down|-)
@@ -127,7 +121,6 @@ pkgs.writeShellScriptBin "screen-brightness" ''
       if [ "$NEW_UI" -lt 0 ]; then NEW_UI=0; fi
       TARGET_RAW="$(ui_to_raw "$NEW_UI")"
       "$BRIGHTNESSCTL" --device="$DEVICE" --min-value="$MIN_RAW" set "$TARGET_RAW" >/dev/null
-      notify_waybar
       ;;
 
     json)
