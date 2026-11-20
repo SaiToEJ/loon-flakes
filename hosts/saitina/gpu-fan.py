@@ -50,7 +50,11 @@ def run_daemon():
             try:
                 N.nvmlDeviceSetDefaultFanSpeed_v2(handle, fan)
             except N.NVMLError as err:
-                print(f"gpu-fan: restore failed for fan {fan}: {err}", file=sys.stderr)
+                print(f"gpu-fan: default speed restore failed for fan {fan}: {err}", file=sys.stderr)
+            try:
+                N.nvmlDeviceSetFanControlPolicy(handle, fan, N.NVML_FAN_POLICY_AUTO)
+            except N.NVMLError as err:
+                print(f"gpu-fan: auto policy restore failed for fan {fan}: {err}", file=sys.stderr)
 
     stopping = False
 
