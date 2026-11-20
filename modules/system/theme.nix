@@ -38,7 +38,7 @@
   # Sin él, blueman y el resto de apps GTK3 se ven claros (verificado 2026-11-07).
   environment.systemPackages = [ (pkgs.callPackage ../../pkgs/adwaita-dark-theme { }) ];
 
-  # ---- Fuentes del sistema (Nerd Fonts y FontAwesome para Waybar) ----
+  # ---- Fuentes del sistema (Nerd Fonts y FontAwesome para la barra Quickshell) ----
   fonts.packages = with pkgs; [
     nerd-fonts.symbols-only
     nerd-fonts.fira-code

@@ -37,17 +37,19 @@ PLUMBING = [
 ]
 
 # Propios, unfree (Hydra no los construye) y flakes externos sin cache pública.
-# Se comparan contra el nombre de la DERIVACIÓN, no del paquete. Ojo:
+# Se comparan contra el nombre de la DERIVACIÓN, no del paquete: varios crean
+# derivaciones intermedias (`*-unwrapped-*`, `*.tar.xz`). Ojo:
 # linux-*-modules y rustc-* no van aquí; deben seguir bloqueando (Hydra los
 # publica con retraso). mpvpaper SÍ va: pkgs/mpvpaper-fixed le cambia src y
 # version, así que ese hash nunca existirá en cache.nixos.org.
 THIRD_PARTY = [
-    r"antigravity", r"^loon-", r"^loon$", r"citron", r"millennium", r"^accela",
-    r"sls-steam", r"veadotube-mini", r"^obs-", r"^wrapped-obs-", r"^steamidra",
+    r"antigravity", r"^loon-", r"^loon$", r"citron",
+    r"millennium", r"^accela", r"sls-steam",
+    r"veadotube-mini", r"^obs-", r"^wrapped-obs-", r"^steamidra",
     r"newtab-dashboard", r"^gentle-", r"^engram", r"^pi-", r"^pi$", r"cline",
     r"better-claude", r"^helium", r"code-insiders", r"vscode",
-    r"equibop", r"pear-desktop", r"cargo-target-cache",
-    r"^port-", r"lanzaboote", r"lzbt", r"^steam",
+    r"equibop", r"pear-desktop", r"cargo-target-cache", r"anydesk",
+    r"google-chrome", r"^port-", r"lanzaboote", r"lzbt", r"^steam",
     r"win11osx-cursor", r"mpv-with-scripts", r"heroic",
     r"^mpvpaper",
 ]
@@ -297,7 +299,6 @@ if __name__ == "__main__":
   '';
 
   pythonScript = pkgs.writeText "nixos-updates-formatter.py" ''
-import html
 import json
 import os
 import sys
@@ -326,7 +327,7 @@ COMMON_NAMES = {
     "git": "Git",
     "gh": "GitHub CLI",
     "tailscale": "Tailscale",
-    "waybar": "Waybar",
+    "quickshell": "Quickshell",
     "niri": "Niri",
     "yazi": "Yazi",
     "btop": "btop",
@@ -481,7 +482,7 @@ def pending_count(cache_dir):
     count = read_int(cache_dir / "count")
     return 0 if read_text(cache_dir / "applicable") == "0" else count
 
-def waybar_status(cache_dir):
+def bar_status(cache_dir):
     state = read_text(cache_dir / "state", "unknown")
     count = read_int(cache_dir / "count")
     pending = pending_count(cache_dir)
@@ -492,8 +493,10 @@ def waybar_status(cache_dir):
 
     lines = []
     if state == "checking":
-        alt, text = "checking", "…"
-        lines.append("Buscando actualizaciones…")
+        # El glifo de refrescar ya comunica el estado; un texto de puntos
+        # suspensivos en la barra sólo añadía ruido (revisión de la captura).
+        alt, text = "checking", ""
+        lines.append("Buscando actualizaciones")
     elif state == "error":
         alt, text = "error", "!"
         lines.append(error or "La última comprobación falló.")
@@ -527,11 +530,10 @@ def waybar_status(cache_dir):
     if state in ("checking", "error") and last_success > 0:
         lines.append("Último resultado válido: %s" % format_time(last_success))
 
-    tooltip = html.escape("\n".join(lines))
     return {
         "text": text,
         "alt": alt,
-        "tooltip": "<tt><span size=\"13000\">%s</span></tt>" % tooltip,
+        "tooltip": "\n".join(lines),
     }
 
 def main():
@@ -580,8 +582,8 @@ def main():
     elif mode == "applicability":
         record_applicability(cache_dir, sys.argv[2] if len(sys.argv) > 2 else "")
 
-    elif mode == "waybar":
-        print(json.dumps(waybar_status(cache_dir), ensure_ascii=False))
+    elif mode == "bar":
+        print(json.dumps(bar_status(cache_dir), ensure_ascii=False))
 
     elif mode == "banner":
         state = read_text(cache_dir / "state", "unknown")
@@ -653,11 +655,6 @@ if __name__ == "__main__":
 
     CMD="''${1:-show}"
 
-    notify_waybar() {
-      ${pkgs.systemd}/bin/systemctl --user kill \
-        --kill-whom=main --signal=RTMIN+9 waybar.service >/dev/null 2>&1 || true
-    }
-
     write_atomic() {
       local destination="$1"
       shift
@@ -674,7 +671,6 @@ if __name__ == "__main__":
       if [ -f "$RUN_LOG" ]; then
         ${pkgs.coreutils}/bin/mv -f "$RUN_LOG" "$CACHE_DIR/latest.log"
       fi
-      notify_waybar
     }
 
     FINALIZED=0
@@ -682,7 +678,7 @@ if __name__ == "__main__":
     cleanup() {
       local code=$?
       ${pkgs.coreutils}/bin/rm -f "$BASE_TMP" "$CANDIDATE_TMP" "$DRY_TMP"
-      # Solo `check` puede dejar constancia de un fallo. Un lector (waybar,
+      # Solo `check` puede dejar constancia de un fallo. Un lector (bar,
       # banner, count, show) que muere por SIGPIPE al cerrarse el pipe no debe
       # pintar la barra como si la comprobación hubiera fallado.
       case "$CMD" in
@@ -775,7 +771,6 @@ if __name__ == "__main__":
       fi
       write_atomic "$CACHE_DIR/state" "ok"
       FINALIZED=1
-      notify_waybar
     }
 
     case "$CMD" in
@@ -795,7 +790,6 @@ if __name__ == "__main__":
         : > "$RUN_LOG"
         write_atomic "$CACHE_DIR/state" "checking"
         write_atomic "$CACHE_DIR/last-check" "$(${pkgs.coreutils}/bin/date +%s)"
-        notify_waybar
 
         echo -e "\033[36m󰍉\033[0m Buscando actualizaciones de NixOS..."
         mkdir -p "$FLAKE_CACHE"
@@ -947,8 +941,10 @@ if __name__ == "__main__":
         ${pkgs.python3}/bin/python3 ${pythonScript} banner
         ;;
 
-      waybar)
-        ${pkgs.python3}/bin/python3 ${pythonScript} waybar
+      bar)
+        # La barra Quickshell consulta este modo periódicamente; no hace falta
+        # señalarla cuando cambia el estado.
+        ${pkgs.python3}/bin/python3 ${pythonScript} bar
         ;;
 
       count)

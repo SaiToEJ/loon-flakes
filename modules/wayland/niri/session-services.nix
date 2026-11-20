@@ -21,17 +21,17 @@ let
     Restart = "on-failure";
     RestartSec = "1s";
     Environment = [
-      "HOME=/home/saito"
-      # Las unidades NixOS reciben por defecto un PATH mínimo. Los módulos de
-      # Waybar y los Exec de los .desktop necesitan los wrappers y paquetes
-      # del sistema completo, igual que los procesos lanzados por Niri.
+      "HOME=${config.loon.home}"
+      # Las unidades NixOS reciben por defecto un PATH mínimo. La barra y los
+      # Exec de los .desktop necesitan los wrappers y paquetes del sistema
+      # completo, igual que los procesos lanzados por Niri.
       #
       # Los perfiles de usuario van explícitos: loon-launch ejecuta cada
       # .desktop con `systemd-run --scope sh -c`, que hereda ESTE entorno de
       # servicio, y apps como NotepadNext o Helium solo viven en
       # ~/.nix-profile/bin (no en /run/current-system/sw/bin). Sin esta línea
       # el launcher fallaba con "firefox: command not found" (2026-11-09).
-      "PATH=/run/wrappers/bin:/run/current-system/sw/bin:/home/saito/.nix-profile/bin:/etc/profiles/per-user/saito/bin:/home/saito/.local/bin"
+      "PATH=/run/wrappers/bin:/run/current-system/sw/bin:/home/saito/.nix-profile/bin:/etc/profiles/per-user/saito/bin:/home/saito/bin:/home/saito/.local/bin"
     ];
   };
 in
@@ -43,11 +43,20 @@ in
     partOf = [ "graphical-session.target" ];
   };
 
-  systemd.user.services.waybar = sessionUnit // {
+  systemd.user.services.quickshell = sessionUnit // {
     description = "Barra custom de la sesión Niri";
     serviceConfig = resilientService // {
-      ExecStart = "${pkgs.waybar}/bin/waybar --config /etc/waybar/config.jsonc --style /etc/waybar/style.css";
-      ExecReload = "${pkgs.coreutils}/bin/kill -SIGUSR2 $MAINPID";
+      ExecStart = "${pkgs.quickshell}/bin/qs -p /etc/quickshell/loonbar";
+      # Reaplicar la paleta cacheada del wallpaper antes de arrancar: cualquier
+      # rebuild puede dejar los archivos en los valores sembrados por tmpfiles.
+      # El guion delante la hace opcional si no hay wallpaper activo.
+      ExecStartPre = "-${accentWallpaper}/bin/accent-wallpaper";
+      # La barra no debe adivinar el backend de brillo del host.
+      Environment = resilientService.Environment ++ [
+        "LOON_BRIGHTNESS_COMMAND=${if config.hardware.brightness.command == null then "screen-brightness" else config.hardware.brightness.command}"
+        # Salida elegida por cada host; vacío significa «todas las pantallas».
+        "LOON_BAR_SCREEN=${if config.loon.quickshell.screen == null then "" else config.loon.quickshell.screen}"
+      ];
     };
   };
 

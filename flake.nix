@@ -47,22 +47,9 @@
       url = "github:jacopone/antigravity-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Steam con soporte para temas y plugins mediante Millennium.
-    millennium.url = "github:SteamClientHomebrew/Millennium?dir=packages/nix";
-    # SpaceTheme Fix para Millennium. No es un flake: se fija como fuente
-    # inmutable en flake.lock y el modulo de Steam desempaqueta su release.
-    space-theme-fix = {
-      url = "github:Apollo-Nebula/SpaceTheme-Fix";
-      flake = false;
-    };
-    # Herramientas para Steam: Accela, SLSsteam y utilidades (nix-tools-steam).
-    nix-tools-steam = {
-      url = "github:HANDZCZ/nix-tools-steam";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, code-insiders-flake, antigravity-nix, millennium, space-theme-fix, nix-tools-steam, helium-browser, nixpkgs-unstable }:
+  outputs = { self, nixpkgs, citron-nextendo, port, loon-launch, code-insiders-flake, antigravity-nix, helium-browser, nixpkgs-unstable }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -136,20 +123,6 @@
             postFixup = "true";
           });
 
-      # Accela parcheado con App ID explícito para Wayland/Niri (evita que reporte "python3").
-      accela = nix-tools-steam.packages.${system}.accela.overrideAttrs (oldAttrs: {
-        postPatch = (oldAttrs.postPatch or "") + ''
-          substituteInPlace bin/src/main.py \
-            --replace-fail 'app = QApplication(sys.argv)' $'app = QApplication(sys.argv)\n    app.setDesktopFileName("accela")'
-        '';
-      });
-
-      steamidraPackage = pkgs.callPackage ./pkgs/steamidra { };
-      steamidraOverlay = final: _prev: {
-        steamidra = final.callPackage ./pkgs/steamidra { };
-      };
-      steamidraModule = ./modules/programs/steamidra;
-
       citronNextendoPackage = citron-nextendo.packages.${system}.default;
       citronNextendoOverlay = citron-nextendo.overlays.default;
       citronNextendoModule = citron-nextendo.nixosModules.default;
@@ -179,7 +152,7 @@
           helium-browser = helium-browser.packages.${system}.default;
           vscode-insiders = vscode-insiders;
           antigravity-cli = antigravity-nix.packages.${system}.google-antigravity-cli;
-          inherit millennium space-theme-fix nix-tools-steam accela citron-nextendo;
+          inherit citron-nextendo;
           # PORT llega como paquete ya resuelto: el modulo no debe conocer
           # inputs del flake ni llamar a getFlake, que exigiria --impure.
           port = port.packages.${system}.default;
@@ -261,11 +234,6 @@
         pi-gpt-fast-mode-shared = gptFastModeShared;
         gentle-ai-bootstrap = gentleAiBootstrap;
         gentle-stack-update = gentleStackUpdate;
-        accela = accela;
-        sls-steam = nix-tools-steam.packages.${system}.sls-steam;
-        # SteaMidra (SFF): GUI de setup/manifest de Steam. AppImage oficial
-        # envuelto en FHS para correr en NixOS (ver pkgs/steamidra).
-        steamidra = steamidraPackage;
         # Fork de Citron Neo con juego online mediante Nextendo Network.
         citron-nextendo = citronNextendoPackage;
         citron-nextendo-v3 = citron-nextendo.packages.${system}.citron-nextendo-v3;
@@ -283,12 +251,10 @@
       };
 
       overlays = {
-        steamidra = steamidraOverlay;
         citron-nextendo = citronNextendoOverlay;
         veadotube-mini = veadotubeMiniOverlay;
         obs-pwvideo = obsPwvideoOverlay;
         default = lib.composeManyExtensions [
-          steamidraOverlay
           citronNextendoOverlay
           veadotubeMiniOverlay
           obsPwvideoOverlay
@@ -296,11 +262,9 @@
       };
 
       nixosModules = {
-        steamidra = steamidraModule;
         citron-nextendo = citronNextendoModule;
         veadotube-mini = veadotubeMiniModule;
         obs-pwvideo = obsPwvideoModule;
-        default = steamidraModule;
       };
 
       nixosConfigurations = {

@@ -7,7 +7,7 @@
     ./fish
     ./ghostty
     ./rust
-    ./waybar
+    ./quickshell
     ./swaync
     ./equibop
     ./omafiles
@@ -20,8 +20,6 @@
     ./virtualbox
     ./gentle-ai
     ./pi-ssh-clipboard
-    ./steam
-    ./steamidra
     ./veadotube-mini
     ./pear-desktop
   ];

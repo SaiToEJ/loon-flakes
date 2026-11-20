@@ -102,7 +102,7 @@
     SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
     SSL_CERT_DIR = "/etc/ssl/certs";
     BROWSER = "helium";
-    NPM_CONFIG_PREFIX = "/home/saito/.npm-global";
+    NPM_CONFIG_PREFIX = "${config.loon.home}/.npm-global";
   };
 
   # Permite ejecutar binarios instalados con `npm install -g --prefix ~/.npm-global <pkg>`
