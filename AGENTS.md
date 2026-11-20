@@ -887,16 +887,19 @@ y `cert` (solo claves), leído de `modules/services/openssh/ssh-auth-mode`.
   dueño, y es la primera parada cuando el fondo se queda parado. Prueba:
   `nix build .#mpvpaper-wallpaper.tests.focused` (incluye un servidor IPC falso
   que comprueba qué comandos se envían y cuáles no).
-- **Fondo animado solo en terminales (`opaque-window`)**: `pkgs/niri-wallpaper-visibility`
-  congela el wallpaper en el último frame salvo que el foco esté en un terminal
-  o el workspace visible esté vacío. La lista `ANIMATED_APP_IDS` del watcher es
-  cerrada y de terminales: ghostty (`opacity 0.8` + `xray` en `config.kdl`).
-  Una app translúcida NO se añade aunque deje ver el fondo: detrás de ella el
-  frame congelado apenas se nota y el ahorro de decodificación compensa. Si la
-  lista se queda corta, el fondo se congela detrás de una terminal; si sobra
-  una app, se decodifica vídeo que nadie ve. En `hosts/saitina` el servicio
-  estaba deshabilitado a propósito (el vídeo corría siempre); se habilitó el
-  2026-11-08 al adoptar la política de animar solo en terminales.
+- **Fondo animado con foco global (`opaque-window`)**: `pkgs/niri-wallpaper-visibility`
+  congela el wallpaper en el último frame salvo que la ventana con el foco
+  global sea translúcida (`com.mitchellh.ghostty` y `port`) o no haya ventana
+  enfocada. La lista `ANIMATED_APP_IDS` del watcher es cerrada: ghostty tiene
+  `opacity 0.8` + `xray` en `config.kdl`; PORT declara `app_id = "port"` en su
+  código GPUI y su ventana es transparente. No mirar `active_window_id` de los
+  workspaces activos es importante con dos monitores: niri mantiene una
+  ventana activa por workspace (puede no ser la enfocada, issue #4008), y eso
+  congelaba el fondo cuando ghostty/port tenían el foco en otra pantalla o
+  cuando no había foco en ninguna. El watcher escucha `WindowFocusChanged`
+  (`id=null` cuando no hay foco) y toma el foco inicial del `is_focused` del
+  `WindowsChanged` del event-stream. Verificación: `nix build
+  .#niri-wallpaper-visibility.tests.focused` y `nix flake check`.
 - **Fondo congelado sin causa aparente → el journal del watcher**: cuando
   quiere animar y mpv sigue pausado, `niri-wallpaper-visibility` escribe en su
   journal el motivo con antigüedad y dueño y el comando para retirarlo
