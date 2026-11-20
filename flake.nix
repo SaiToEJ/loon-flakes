@@ -227,6 +227,7 @@
         mpvpaper-wallpaper = pkgs.callPackage ./pkgs/mpvpaper-wallpaper {
           accent-wallpaper = pkgs.callPackage ./pkgs/accent-wallpaper { };
         };
+        niri-wallpaper-visibility = pkgs.callPackage ./pkgs/niri-wallpaper-visibility { };
         # Tema de cursor Win11OSX (Xcursor nativo de Linux).
         win11osx-cursor = pkgs.callPackage ./pkgs/win11osx-cursor { };
         vscode-insiders = vscode-insiders;
@@ -315,6 +316,7 @@
         // {
           cargo-target-cache = cargoTargetCache.tests.focused;
           mpvpaper-wallpaper = self.packages.${system}.mpvpaper-wallpaper.tests.focused;
+          niri-wallpaper-visibility = self.packages.${system}.niri-wallpaper-visibility.tests.focused;
           # omafiles: comprueba que el wrapper deja libwayland-client al
           # alcance del dlopen de GPUI. Sin eso el binario compila y luego
           # aborta con NoWaylandLib, cosa que ni el build ni la eval detectan.

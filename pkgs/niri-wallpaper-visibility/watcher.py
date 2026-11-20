@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pausa mpvpaper salvo que el foco esté en un terminal o el workspace esté vacío."""
+"""Pausa mpvpaper salvo que el foco global esté en una app translúcida o no haya foco."""
 
 from __future__ import annotations
 
@@ -10,93 +10,80 @@ import sys
 from typing import Any
 
 
-# Política: el wallpaper animado corre SOLO a pleno cuando el foco está en un
-# terminal o el workspace visible está vacío. Con cualquier otra ventana
-# enfocada se congela en el último frame, y ahí está el ahorro: mpv deja de
-# decodificar mientras el usuario mira el navegador o el chat. Por eso la
-# lista es cerrada y de terminales; una app translúcida NO se añade aunque
-# deje ver el fondo, porque detrás de ella el frame congelado apenas se nota
-# y el ahorro compensa. Debe coincidir con el window-rule de ghostty en
-# config.kdl (opacity 0.8 + xray), la única superficie que lo deja ver.
-ANIMATED_APP_IDS = frozenset({"com.mitchellh.ghostty"})
+# Política: el wallpaper animado corre a pleno cuando la ventana con el foco
+# global es translúcida (ghostty, port) o cuando no hay ninguna ventana
+# enfocada. Con cualquier otra ventana enfocada se congela en el último frame,
+# y ahí está el ahorro: mpv deja de decodificar mientras el usuario mira el
+# navegador o el chat. El foco es GLOBAL: niri mantiene una ventana "active"
+# por workspace, así que mirar `active_window_id` de todos los workspaces
+# activos congelaba el fondo en un monitor por una ventana del otro, y también
+# cuando no había foco en ninguno (issue #4008 de niri documenta la diferencia
+# entre active window y focused window). El window-rule de ghostty en
+# config.kdl (opacity 0.8 + xray) es el que deja ver el fondo a través de ella.
+ANIMATED_APP_IDS = frozenset({"com.mitchellh.ghostty", "port"})
 PAUSE_REASON = "opaque-window"
 
 
 class VisibilityState:
     def __init__(self) -> None:
-        self.workspaces: dict[int, dict[str, Any]] = {}
         self.windows: dict[int, dict[str, Any]] = {}
+        self.focused_window_id: int | None = None
 
     def should_freeze_wallpaper(self) -> bool:
-        """True si el wallpaper debe congelarse: hay una ventana enfocada que
-        no es terminal en algún workspace visible. Los workspaces vacíos no
-        cuentan: en el escritorio solo el fondo corre."""
-        for workspace in self.workspaces.values():
-            if not workspace.get("is_active"):
-                continue
-            window_id = workspace.get("active_window_id")
-            if window_id is None:
-                continue
-            window = self.windows.get(window_id)
-            # Durante actualizaciones no atómicas, congelar de forma conservadora
-            # hasta que llegue la descripción de la ventana.
-            if window is None or window.get("app_id") not in ANIMATED_APP_IDS:
-                return True
-        return False
+        """True si el fondo debe congelarse: hay una ventana enfocada opaca.
+
+        Sin ventana enfocada el fondo corre en las dos pantallas. Si el evento
+        de foco llega antes que la descripción de la ventana, se congela de
+        forma conservadora hasta que llegue el WindowOpenedOrChanged."""
+        if self.focused_window_id is None:
+            return False
+        window = self.windows.get(self.focused_window_id)
+        return window is None or window.get("app_id") not in ANIMATED_APP_IDS
 
     def update(self, event: dict[str, Any]) -> bool:
         """Aplica un evento; devuelve True si puede cambiar la visibilidad."""
-        if payload := event.get("WorkspacesChanged"):
-            self.workspaces = {
-                workspace["id"]: workspace for workspace in payload["workspaces"]
-            }
-            return True
-
-        if payload := event.get("WorkspaceActivated"):
-            workspace = self.workspaces.get(payload["id"])
-            if workspace is None:
-                return False
-            output = workspace.get("output")
-            for candidate in self.workspaces.values():
-                if candidate.get("output") == output:
-                    candidate["is_active"] = candidate["id"] == payload["id"]
-                if payload.get("focused"):
-                    candidate["is_focused"] = candidate["id"] == payload["id"]
-            return True
-
-        if payload := event.get("WorkspaceActiveWindowChanged"):
-            workspace = self.workspaces.get(payload["workspace_id"])
-            if workspace is None:
-                return False
-            workspace["active_window_id"] = payload.get("active_window_id")
-            return bool(workspace.get("is_active"))
-
         if payload := event.get("WindowsChanged"):
-            old_signature = self._window_signature()
+            # Instantánea inicial del event-stream: `is_focused` distingue la
+            # única ventana con foco global de las "active" de cada monitor.
             self.windows = {window["id"]: window for window in payload["windows"]}
-            return old_signature != self._window_signature()
+            focused = [w["id"] for w in self.windows.values() if w.get("is_focused")]
+            self.focused_window_id = focused[0] if focused else None
+            return True
 
         if payload := event.get("WindowOpenedOrChanged"):
             window = payload["window"]
             old = self.windows.get(window["id"])
             self.windows[window["id"]] = window
-            # Ignorar cambios de título/foco: Ghostty puede emitir decenas por
-            # segundo y no cambian si el wallpaper está cubierto.
-            return old is None or (
+            if window.get("is_focused"):
+                self.focused_window_id = window["id"]
+            # Un cambio de título no altera la decisión; un cambio de app,
+            # workspace o de quién tiene el foco sí puede alterarla.
+            app_changed = old is None or (
                 old.get("app_id"), old.get("workspace_id")
             ) != (window.get("app_id"), window.get("workspace_id"))
+            gained_focus = bool(window.get("is_focused")) and (
+                old is None or not old.get("is_focused")
+            )
+            return app_changed or gained_focus
+
+        if payload := event.get("WindowFocusChanged"):
+            # niri envía id=null cuando no hay foco (workspace vacío, overview,
+            # etc.). Es la señal que faltaba para los dos monitores.
+            focused = payload.get("id")
+            if focused == self.focused_window_id:
+                return False
+            self.focused_window_id = focused
+            return True
 
         if payload := event.get("WindowClosed"):
-            removed = self.windows.pop(payload["id"], None)
-            return removed is not None
+            window_id = payload["id"]
+            removed = self.windows.pop(window_id, None)
+            was_focused = self.focused_window_id == window_id
+            if was_focused:
+                self.focused_window_id = None
+            return removed is not None or was_focused
 
         return False
-
-    def _window_signature(self) -> set[tuple[int, Any, Any]]:
-        return {
-            (window_id, window.get("app_id"), window.get("workspace_id"))
-            for window_id, window in self.windows.items()
-        }
 
 
 def set_wallpaper_paused(paused: bool) -> None:

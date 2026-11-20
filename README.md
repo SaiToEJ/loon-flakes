@@ -196,9 +196,13 @@ permisos privados del usuario; no se usa `/tmp` compartido.
 
 La pausa no es un interruptor único: los **motivos** se apilan y el video solo
 se detiene mientras quede al menos uno. `niri-wallpaper-visibility` añade
-`opaque-window` cuando la ventana activa de un workspace visible es opaca
-(las transparentes —ghostty y PORT— no cuentan), y el perfil de energía de la
-laptop añade `power-profile`.
+`opaque-window` cuando la ventana con el **foco global** es opaca. Las apps
+translúcidas (`com.mitchellh.ghostty` y `port`, en `ANIMATED_APP_IDS`) animan
+el fondo en las dos pantallas, y si no hay ninguna ventana enfocada el fondo
+también sigue animando. Lo que ve niri como ventana «activa» de cada workspace
+no decide: con dos monitores hay una por pantalla y eso congelaba el fondo
+por una ventana del otro monitor. El perfil de energía de la laptop añade
+`power-profile`.
 
 Cada motivo guarda **cuándo** y **quién** lo creó. `reasons` imprime tres
 columnas —motivo, antigüedad y dueño— para que un motivo olvidado no se vea
