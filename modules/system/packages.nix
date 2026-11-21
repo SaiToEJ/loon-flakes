@@ -131,13 +131,6 @@ in
     codexLatest
     (pkgs.callPackage ../../pkgs/cline-launcher { })
     zoom-us
-    # Cisco Packet Tracer 9: simulador de redes. Es propietario y nixpkgs no
-    # puede descargarlo: hay que bajar el .deb de NetAcad (cuenta gratuita) y
-    # añadirlo al store con
-    #   nix-store --add-fixed sha256 CiscoPacketTracer_901_Ubuntu_64bit.deb
-    # Sin pin de versión aquí: la versión y el hash viven en nixpkgs y los
-    # mueve `rebuild update` (ver "Política de versiones" en AGENTS.md).
-    cisco-packet-tracer_9
     # Eglantine: emulador de Nintendo Switch 2 (fork de Eden/Yuzu). Es un
     # launcher mutable — el AppImage vive en ~/.local/share/eglantine y no se
     # actualiza en un rebuild; ver pkgs/eglantine para el porqué.
