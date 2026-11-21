@@ -5,6 +5,7 @@
 {
   imports = [
     ./hardware-configuration.nix
+    ./monitor.nix
     ./platform.nix
     ./audio.nix
     ./gaming.nix
