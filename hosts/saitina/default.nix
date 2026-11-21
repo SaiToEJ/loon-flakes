@@ -1,5 +1,6 @@
 # Host "saitina": MSI PRO B550M-P + Ryzen 5 5500 + GeForce GTX 1070.
-# Dual boot Windows + NixOS. Solo compone; la lógica vive en ../../modules.
+# NixOS exclusivo en el M.2; el espacio de Windows se fusionó con la raíz.
+# Solo compone; la lógica vive en ../../modules.
 { config, lib, pkgs, ... }:
 
 {
@@ -34,8 +35,8 @@
   users.users.root.initialPassword = "saito";
 
   # -------------------------------------------------------------- arranque
-  # GRUB EFI sobre la ESP nueva (nvme0n1p6). Windows tiene su PROPIA ESP
-  # (nvme0n1p4), así que la entrada se declara por UUID en vez de os-prober.
+  # GRUB EFI sobre la ESP de NixOS (nvme0n1p6). La ESP, la partición y la
+  # entrada de Windows se retiraron: no hay chainloader ni os-prober.
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.grub = {
     enable = true;
@@ -43,15 +44,6 @@
     device = "nodev";
     configurationLimit = 3;
     useOSProber = false;
-    extraEntries = ''
-      menuentry "Windows Boot Manager" --class windows --class os {
-        insmod part_gpt
-        insmod fat
-        insmod chain
-        search --no-floppy --fs-uuid --set=root D249-0B70
-        chainloader /EFI/Microsoft/Boot/bootmgfw.efi
-      }
-    '';
   };
   boot.loader.timeout = 10;
 
@@ -109,18 +101,16 @@
   ];
 
   # --------------------------------------------------------------- discos
-  # Soporte para sistemas de archivos NTFS (discos secundarios y Windows):
-  # DATA / HELL / NAH, todos NTFS y compartidos con Windows. Se montan y
-  # usan tal cual están, sin formatear.
+  # Soporte para sistemas de archivos NTFS de los discos secundarios:
+  # DATA / HELL / NAH. Se montan y usan tal cual están, sin formatear.
   boot.supportedFilesystems = [ "ntfs" ];
 
   # Windows deja los volumenes NTFS "dirty" al apagar sin desmontaje limpio
   # (Inicio rapido) y el driver ntfs3 se niega a montarlos sin `force`: el
   # usuario ve un error generico de "bad superblock" y el disco desaparece.
-  # Sin esto, cada sesion de Windows vuelve a dejar HELL (y DATA/NAH) fuera.
-  # `force` es opcion del driver ntfs3; la lista allow es la builtin completa
-  # mas esa opcion. El volumen del sistema Windows no se automonta (udisks
-  # lo marca HintSystem), asi que queda fuera de este camino.
+  # Sin esto, un arranque previo de Windows vuelve a dejar HELL (y DATA/NAH)
+  # fuera. `force` es opcion del driver ntfs3; la lista allow es la builtin
+  # completa mas esa opcion.
   environment.etc."udisks2/mount_options.conf".text = ''
     [defaults]
     ntfs:ntfs3_defaults=uid=$UID,gid=$GID,force
