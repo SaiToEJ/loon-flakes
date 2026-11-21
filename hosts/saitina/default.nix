@@ -6,6 +6,7 @@
   imports = [
     ./hardware-configuration.nix
     ./platform.nix
+    ./audio.nix
     ./gaming.nix
     ./games-disk.nix
     ./gpu-fan.nix
