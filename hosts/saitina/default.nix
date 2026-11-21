@@ -49,7 +49,7 @@
         insmod part_gpt
         insmod fat
         insmod chain
-        search --no-floppy --fs-uuid --set=root D249-0B70
+        search --no-floppy --fs-uuid --set=root D4D0-8DAC
         chainloader /EFI/Microsoft/Boot/bootmgfw.efi
       }
     '';
