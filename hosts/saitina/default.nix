@@ -179,10 +179,17 @@
   # Al desconectar los audífonos Bluetooth la salida debe volver al monitor,
   # no al jack del PD100X. WirePlumber elige el fallback por `priority.session`
   # y el jack del micrófono (1109) le ganaba al HDMI del monitor (696). Bajarlo
-  # deja el orden natural Bluetooth (1010) > monitor (696) > PD100X (600); una
-  # selección manual del PD100X se sigue respetando porque WirePlumber suma
-  # 30000 al nodo que el usuario configuró como predeterminado.
+  # deja el orden natural Bluetooth (1010) > monitor (696) > PD100X (600).
+  # Pero WirePlumber también recuerda el último default elegido y le suma 20000
+  # al restaurarlo: con los audífonos desconectados eso devolvía el PD100X
+  # aunque su prioridad ya fuera menor. Desactivar ese historial deja decidir a
+  # la prioridad; `module-switch-on-connect` sigue poniendo los audífonos como
+  # default al volver a conectarlos. Efecto colateral: una selección manual hecha
+  # a mano no se recuerda al reiniciar la sesión.
   services.pipewire.wireplumber.extraConfig."51-monitor-default-sink" = {
+    "wireplumber.settings" = {
+      "node.restore-default-targets" = false;
+    };
     "monitor.alsa.rules" = [
       {
         matches = [
