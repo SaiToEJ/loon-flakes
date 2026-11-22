@@ -7,10 +7,14 @@
 #   rebuild dry        # prueba sin aplicar
 #   rebuild update     # actualiza y prepara el próximo arranque con boot (conserva boot sin switch)
 #   rebuild update force  # actualiza aunque falten binarios publicados
+#
+# Antes de aplicar cualquier switch/boot corre nixos-disk-gate: compara los UUID
+# del flake con los montados y exige vfat en initrd si /boot es vfat.
 { pkgs, lib }:
 
 let
   nixosUpdates = pkgs.callPackage ../nixos-updates { };
+  diskGate = pkgs.callPackage ../nixos-disk-gate { };
 
   script = pkgs.writeShellScriptBin "rebuild" ''
     set -euo pipefail
@@ -37,6 +41,11 @@ let
       exit 1
     fi
 
+    # Barrera permanente: si la rama trae UUID de otra máquina, aborta antes de
+    # tocar la generación activa. Corre como root porque libgit2 no acepta el
+    # repo de /etc/nixos cuando se evalúa como usuario.
+    sudo "${diskGate}/bin/nixos-disk-gate" "$FLAKE_DIR" "$HOST"
+
     case "''${1:-switch}" in
       dry)
         sudo nixos-rebuild dry-run --flake ".#$HOST"
@@ -58,6 +67,7 @@ let
         echo "$gate_out"
 
         nix flake update
+        sudo "${diskGate}/bin/nixos-disk-gate" "$FLAKE_DIR" "$HOST"
         # Una actualización de inputs puede cambiar componentes fundamentales
         # (greetd, PAM, systemd, drivers...). Aplicarlos con `switch` mientras
         # hay una sesión gráfica activa puede quitarle el seat/DRM a niri y
