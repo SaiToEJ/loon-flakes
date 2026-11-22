@@ -228,6 +228,18 @@ window-rule {
     }
 }
 
+// PORT: la misma transparencia de compositor que ghostty, para que se vea el
+// wallpaper a través de la terminal. El watcher del fondo ya trata `port` como
+// app translúcida en ANIMATED_APP_IDS.
+window-rule {
+    match app-id="^port$"
+
+    opacity 0.8
+    background-effect {
+        xray true
+    }
+}
+
 // blueman-manager: la ventana de gestión de Bluetooth es un diálogo chico;
 // la regla genérica la abriría maximizada en una columna entera.
 // El app-id real es `.blueman-manager-wrapped` (el wrapper de Nix de Python);
