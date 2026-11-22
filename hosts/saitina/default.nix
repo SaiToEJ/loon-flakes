@@ -114,7 +114,8 @@
   # Soporte para sistemas de archivos NTFS (discos secundarios y Windows):
   # DATA / HELL / NAH, todos NTFS y compartidos con Windows. Se montan y
   # usan tal cual están, sin formatear.
-  boot.supportedFilesystems = [ "ntfs" ];
+  boot.supportedFilesystems = [ "ntfs" "vfat" ];
+  boot.initrd.supportedFilesystems = [ "vfat" ];
 
   # Windows deja los volumenes NTFS "dirty" al apagar sin desmontaje limpio
   # (Inicio rapido) y el driver ntfs3 se niega a montarlos sin `force`: el
